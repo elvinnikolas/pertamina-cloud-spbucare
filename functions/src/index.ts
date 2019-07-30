@@ -186,7 +186,7 @@ exports.onUpdateOrder = functions.firestore
             let nameUser, registrationTokenUser
             //mendapatkan isi field document dari user ybs
             if (dataUser !== undefined) {
-                nameUser = dataUser.nameUser
+                nameUser = dataUser.name
                 registrationTokenUser = dataUser.token
             }
 
