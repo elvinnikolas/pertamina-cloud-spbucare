@@ -15,6 +15,12 @@ main.use(bodyParser.json())
 
 export const webApi = functions.https.onRequest(main)
 
+//deklarasi variabel global
+let idNotification = ''
+const ssgaId = '1GJiQL1yVPULwtM5BiacBXDCv8Y2'
+const ohId = 'pyo93kufMWa5yRiIQ82w9q454n13'
+const pnId = 'OGliHFqeIVRsM00G2Kq1CrnSKEu1'
+
 exports.onCreateOrder = functions.firestore
     .document('users/{userId}/orders/{orderId}')
     .onCreate(async (snapshot, context) => {
@@ -26,9 +32,9 @@ exports.onCreateOrder = functions.firestore
             const order = await db.collection('users/' + userId + '/orders').doc(orderId).get()
 
             const dataUser = user.data()
-            let name, srId, registrationTokenUser
+            let nameUser, srId, registrationTokenUser
             if (dataUser !== undefined) {
-                name = dataUser.name
+                nameUser = dataUser.name
                 srId = dataUser.salesRetailId
                 registrationTokenUser = dataUser.token
             }
@@ -64,31 +70,27 @@ exports.onCreateOrder = functions.firestore
                 type = dataOrder.type
             }
 
-            const ssgaId = '1GJiQL1yVPULwtM5BiacBXDCv8Y2'
-            const ohId = 'pyo93kufMWa5yRiIQ82w9q454n13'
-            const pnId = 'OGliHFqeIVRsM00G2Kq1CrnSKEu1'
-
             const notificationsUser = await db.collection('users/' + userId + '/notifications').doc()
             const notificationIdUser = notificationsUser.id
             const titleUser = "Terima kasih"
-            const bodyUser = "Anda telah menggunakan layanan " + type + " sejumlah " + stringVolume
+            const bodyUser = "Anda telah menggunakan layanan " + String(type).toUpperCase() + " sejumlah: " + stringVolume
 
-            const notificationsSR = await db.collection('users/' + srId + '/notifications').doc()
-            const notificationIdSR = notificationsSR.id
-            const notificationsOH = await db.collection('users/' + ohId + '/notifications').doc()
-            const notificationIdOH = notificationsOH.id
-            const notificationsSSGA = await db.collection('users/' + ssgaId + '/notifications').doc()
-            const notificationIdSSGA = notificationsSSGA.id
-            const notificationsPN = await db.collection('users/' + pnId + '/notifications').doc()
-            const notificationIdPN = notificationsPN.id
-            const titleAtasan = "Permintaan Baru"
-            const bodyAtasan = "Terdapat permintaan " + String(type) + " baru dari " + String(name)
+            const notificationsAtasan = await db.collection('users/' + srId + '/notifications').doc()
+            const notificationIdAtasan = notificationsAtasan.id
+            const titleAtasan = "PERMINTAAN " + String(type).toUpperCase()
+            const status = "\nMenunggu konfirmasi dari SR"
+            const bodyAtasan = "Terdapat permintaan dari SPBU " + String(nameUser).toUpperCase() + " sejumlah: " + stringVolume + ". " + status
 
             const open = true
             const createdOn = admin.firestore.Timestamp.now()
 
-            let notificationId, title, body
+            await db.collection('users/' + ssgaId + '/notifications').doc(notificationIdAtasan)
+            await db.collection('users/' + ohId + '/notifications').doc(notificationIdAtasan)
+            await db.collection('users/' + pnId + '/notifications').doc(notificationIdAtasan)
 
+            idNotification = notificationIdAtasan
+
+            let notificationId, title, body
             notificationId = notificationIdUser
             title = titleUser
             body = bodyUser
@@ -100,38 +102,10 @@ exports.onCreateOrder = functions.firestore
                 open,
                 type
             }
-
-            notificationId = notificationIdSR
+            notificationId = notificationIdAtasan
             title = titleAtasan
             body = bodyAtasan
-            const notificationDataSR = {
-                notificationId,
-                createdOn,
-                title,
-                body,
-                open,
-                type
-            }
-            notificationId = notificationIdSSGA
-            const notificationDataSSGA = {
-                notificationId,
-                createdOn,
-                title,
-                body,
-                open,
-                type
-            }
-            notificationId = notificationIdOH
-            const notificationDataOH = {
-                notificationId,
-                createdOn,
-                title,
-                body,
-                open,
-                type
-            }
-            notificationId = notificationIdPN
-            const notificationDataPN = {
+            const notificationDataAtasan = {
                 notificationId,
                 createdOn,
                 title,
@@ -148,28 +122,28 @@ exports.onCreateOrder = functions.firestore
                     console.log(error)
                 })
 
-            await db.doc('users/' + srId + "/notifications/" + notificationIdSR).set(notificationDataSR, { merge: true })
+            await db.doc('users/' + srId + "/notifications/" + notificationIdAtasan).set(notificationDataAtasan, { merge: true })
                 .then(function () {
                     console.log('Success: create notification SR')
                 })
                 .catch(function (error) {
                     console.log(error)
                 })
-            await db.doc('users/' + ssgaId + "/notifications/" + notificationIdSSGA).set(notificationDataSSGA, { merge: true })
+            await db.doc('users/' + ssgaId + "/notifications/" + notificationIdAtasan).set(notificationDataAtasan, { merge: true })
                 .then(function () {
                     console.log('Success: create notification SSGA')
                 })
                 .catch(function (error) {
                     console.log(error)
                 })
-            await db.doc('users/' + ohId + "/notifications/" + notificationIdOH).set(notificationDataOH, { merge: true })
+            await db.doc('users/' + ohId + "/notifications/" + notificationIdAtasan).set(notificationDataAtasan, { merge: true })
                 .then(function () {
                     console.log('Success: create notification OH')
                 })
                 .catch(function (error) {
                     console.log(error)
                 })
-            await db.doc('users/' + pnId + "/notifications/" + notificationIdPN).set(notificationDataPN, { merge: true })
+            await db.doc('users/' + pnId + "/notifications/" + notificationIdAtasan).set(notificationDataAtasan, { merge: true })
                 .then(function () {
                     console.log('Success: create notification PN')
                 })
@@ -191,62 +165,63 @@ exports.onCreateOrder = functions.firestore
 
             //notifikasi atasan
             const docPN = await db.collection('users').doc(pnId).get()
-                const dtPN = docPN.data()
-                let registrationTokenPN
-                if (dtPN !== undefined) {
-                    registrationTokenPN = dtPN.token
-                }
-                const docOH = await db.collection('users').doc(ohId).get()
-                const dtOH = docOH.data()
-                let registrationTokenOH
-                if (dtOH !== undefined) {
-                    registrationTokenOH = dtOH.token
-                }
-                const docSSGA = await db.collection('users').doc(ssgaId).get()
-                const dtSSGA = docSSGA.data()
-                let registrationTokenSSGA
-                if (dtSSGA !== undefined) {
-                    registrationTokenSSGA = dtSSGA.token
-                }
-                const docSR = await db.collection('users').doc(srId).get()
-                const dtSR = docSR.data()
-                let registrationTokenSR
-                if (dtSR !== undefined) {
-                    registrationTokenSR = dtSR.token
-                }
+            const dtPN = docPN.data()
+            let registrationTokenPN
+            if (dtPN !== undefined) {
+                registrationTokenPN = dtPN.token
+            }
+            const docOH = await db.collection('users').doc(ohId).get()
+            const dtOH = docOH.data()
+            let registrationTokenOH
+            if (dtOH !== undefined) {
+                registrationTokenOH = dtOH.token
+            }
+            const docSSGA = await db.collection('users').doc(ssgaId).get()
+            const dtSSGA = docSSGA.data()
+            let registrationTokenSSGA
+            if (dtSSGA !== undefined) {
+                registrationTokenSSGA = dtSSGA.token
+            }
+            const docSR = await db.collection('users').doc(srId).get()
+            const dtSR = docSR.data()
+            let registrationTokenSR
+            if (dtSR !== undefined) {
+                registrationTokenSR = dtSR.token
+            }
 
-                const messagePN = {
-                    data: {
-                        "title": title,
-                        "body": body,
-                        "type": type
-                    },
-                    token: registrationTokenPN
-                }
-                const messageOH = {
-                    data: {
-                        "title": title,
-                        "body": body,
-                        "type": type
-                    },
-                    token: registrationTokenOH
-                }
-                const messageSSGA = {
-                    data: {
-                        "title": title,
-                        "body": body,
-                        "type": type
-                    },
-                    token: registrationTokenSSGA
-                }
-                const messageSR = {
-                    data: {
-                        "title": title,
-                        "body": body,
-                        "type": type
-                    },
-                    token: registrationTokenSR
-                }
+            body = "Terdapat permintaan " + String(type).toUpperCase() + " dari SPBU " + String(nameUser).toUpperCase()
+            const messagePN = {
+                data: {
+                    "title": title,
+                    "body": body,
+                    "type": type
+                },
+                token: registrationTokenPN
+            }
+            const messageOH = {
+                data: {
+                    "title": title,
+                    "body": body,
+                    "type": type
+                },
+                token: registrationTokenOH
+            }
+            const messageSSGA = {
+                data: {
+                    "title": title,
+                    "body": body,
+                    "type": type
+                },
+                token: registrationTokenSSGA
+            }
+            const messageSR = {
+                data: {
+                    "title": title,
+                    "body": body,
+                    "type": type
+                },
+                token: registrationTokenSR
+            }
 
             sendNotification(messageSR)
             sendNotification(messageSSGA)
@@ -270,22 +245,43 @@ exports.onUpdateOrder = functions.firestore
             const user = await db.collection('users').doc(userId).get()
             const order = await db.collection('orders').doc(orderId).get()
 
-            const ssgaId = '1GJiQL1yVPULwtM5BiacBXDCv8Y2'
-            const ohId = 'pyo93kufMWa5yRiIQ82w9q454n13'
-            const pnId = 'OGliHFqeIVRsM00G2Kq1CrnSKEu1'
-
             const dataUser = user.data()
-            let nameUser, registrationTokenUser
+            let registrationTokenUser, nameUser, srId
             //mendapatkan isi field document dari user ybs
             if (dataUser !== undefined) {
-                nameUser = dataUser.name
                 registrationTokenUser = dataUser.token
+                nameUser = dataUser.name
+                srId = dataUser.salesRetailId
             }
 
             const dataOrder = order.data()
-            let type
-            //mendapatkan isi field document dari order
+            let type, stringVolume
+            let biosolar, dexlite, pertadex, pertalite, pertamax, premium, pxturbo
             if (dataOrder !== undefined) {
+                if (dataOrder.orderVolume.biosolar !== 0) {
+                    biosolar = "biosolar " + String(dataOrder.orderVolume.biosolar) + " kl, "
+                } else { biosolar = "" }
+                if (dataOrder.orderVolume.dexlite !== 0) {
+                    dexlite = "dexlite " + String(dataOrder.orderVolume.dexlite) + " kl, "
+                } else { dexlite = "" }
+                if (dataOrder.orderVolume.pertadex !== 0) {
+                    pertadex = "pertadex " + String(dataOrder.orderVolume.pertadex) + " kl, "
+                } else { pertadex = "" }
+                if (dataOrder.orderVolume.pertalite !== 0) {
+                    pertalite = "pertalite " + String(dataOrder.orderVolume.pertalite) + " kl, "
+                } else { pertalite = "" }
+                if (dataOrder.orderVolume.pertamax !== 0) {
+                    pertamax = "pertamax " + String(dataOrder.orderVolume.pertamax) + " kl, "
+                } else { pertamax = "" }
+                if (dataOrder.orderVolume.premium !== 0) {
+                    premium = "premium " + String(dataOrder.orderVolume.premium) + " kl, "
+                } else { premium = "" }
+                if (dataOrder.orderVolume.pxturbo !== 0) {
+                    pxturbo = "pxturbo " + String(dataOrder.orderVolume.pxturbo) + " kl, "
+                } else { pxturbo = "" }
+
+                stringVolume = biosolar + dexlite + pertadex + pertalite + pertamax + premium + pxturbo
+                stringVolume = stringVolume.substr(0, stringVolume.length - 2)
                 type = dataOrder.type
             }
 
@@ -313,212 +309,6 @@ exports.onUpdateOrder = functions.firestore
                 p_confirmSSGA = previousValue.orderConfirmation.confirmSSGA
             }
 
-            //function notifikasi all
-            async function sendNotificationAll(): Promise<void> {
-                const dataUser = user.data()
-                let nameUser, srId
-                if (dataUser !== undefined) {
-                    nameUser = dataUser.name
-                    srId = dataUser.salesRetailId
-                }
-                const dataOrder = order.data()
-                let type
-                if (dataOrder !== undefined) {
-                    type = dataOrder.type
-                }
-
-                let n_confirmOH, n_confirmPN, n_confirmSR, n_confirmSSGA
-                if (newValue !== undefined) {
-                    n_confirmOH = newValue.orderConfirmation.confirmOH
-                    n_confirmPN = newValue.orderConfirmation.confirmPN
-                    n_confirmSR = newValue.orderConfirmation.confirmSR
-                    n_confirmSSGA = newValue.orderConfirmation.confirmSSGA
-                } else {
-                    console.log("Error new value")
-                }
-
-                let status
-                if (n_confirmPN === false && n_confirmOH === true && n_confirmSSGA === true && n_confirmSR === true) {
-                    status = "\nMenunggu konfirmasi dari PN"
-                } else if (n_confirmPN === false && n_confirmOH === false && n_confirmSSGA === true && n_confirmSR === true) {
-                    status = "\nMenunggu konfirmasi dari OH"
-                } else if (n_confirmPN === false && n_confirmOH === false && n_confirmSSGA === false && n_confirmSR === true) {
-                    status = "\nMenunggu konfirmasi dari SSGA"
-                } else if (n_confirmPN === false && n_confirmOH === true && n_confirmSSGA === false && n_confirmSR === false) {
-                    status = "\nMenunggu konfirmasi dari SR"
-                } else {
-                    // console.log("Nothing")
-                }
-
-                const title = "Permintaan Baru"
-                const body = "Terdapat permintaan " + String(type) + " baru dari " + String(nameUser) + status
-
-                const docPN = await db.collection('users').doc(pnId).get()
-                const dtPN = docPN.data()
-                let registrationTokenPN
-                if (dtPN !== undefined) {
-                    registrationTokenPN = dtPN.token
-                }
-                const docOH = await db.collection('users').doc(ohId).get()
-                const dtOH = docOH.data()
-                let registrationTokenOH
-                if (dtOH !== undefined) {
-                    registrationTokenOH = dtOH.token
-                }
-                const docSSGA = await db.collection('users').doc(ssgaId).get()
-                const dtSSGA = docSSGA.data()
-                let registrationTokenSSGA
-                if (dtSSGA !== undefined) {
-                    registrationTokenSSGA = dtSSGA.token
-                }
-                const docSR = await db.collection('users').doc(srId).get()
-                const dtSR = docSR.data()
-                let registrationTokenSR
-                if (dtSR !== undefined) {
-                    registrationTokenSR = dtSR.token
-                }
-
-                const messagePN = {
-                    data: {
-                        "title": title,
-                        "body": body,
-                        "type": type
-                    },
-                    token: registrationTokenPN
-                }
-                const messageOH = {
-                    data: {
-                        "title": title,
-                        "body": body,
-                        "type": type
-                    },
-                    token: registrationTokenOH
-                }
-                const messageSSGA = {
-                    data: {
-                        "title": title,
-                        "body": body,
-                        "type": type
-                    },
-                    token: registrationTokenSSGA
-                }
-                const messageSR = {
-                    data: {
-                        "title": title,
-                        "body": body,
-                        "type": type
-                    },
-                    token: registrationTokenSR
-                }
-
-                admin.messaging().send(messagePN)
-                    .then((response) => {
-                        console.log('Successfully sent message:', response)
-                    })
-                    .catch((error) => {
-                        console.log('Error sending message:', error)
-                    })
-                admin.messaging().send(messageOH)
-                    .then((response) => {
-                        console.log('Successfully sent message:', response)
-                    })
-                    .catch((error) => {
-                        console.log('Error sending message:', error)
-                    })
-                admin.messaging().send(messageSSGA)
-                    .then((response) => {
-                        console.log('Successfully sent message:', response)
-                    })
-                    .catch((error) => {
-                        console.log('Error sending message:', error)
-                    })
-                admin.messaging().send(messageSR)
-                    .then((response) => {
-                        console.log('Successfully sent message:', response)
-                    })
-                    .catch((error) => {
-                        console.log('Error sending message:', error)
-                    })
-
-                const notificationsPN = await db.collection('users/' + pnId + '/notifications').doc()
-                const notificationIdPN = notificationsPN.id
-                const notificationsOH = await db.collection('users/' + ohId + '/notifications').doc()
-                const notificationIdOH = notificationsOH.id
-                const notificationsSSGA = await db.collection('users/' + ssgaId + '/notifications').doc()
-                const notificationIdSSGA = notificationsSSGA.id
-                const notificationsSR = await db.collection('users/' + srId + '/notifications').doc()
-                const notificationIdSR = notificationsSR.id
-                const open = true
-                const createdOn = admin.firestore.Timestamp.now()
-
-                let notificationId
-                notificationId = notificationIdPN
-                const notificationDataPN = {
-                    notificationId,
-                    createdOn,
-                    title,
-                    body,
-                    open,
-                    type
-                }
-                notificationId = notificationIdOH
-                const notificationDataOH = {
-                    notificationId,
-                    createdOn,
-                    title,
-                    body,
-                    open,
-                    type
-                }
-                notificationId = notificationIdSSGA
-                const notificationDataSSGA = {
-                    notificationId,
-                    createdOn,
-                    title,
-                    body,
-                    open,
-                    type
-                }
-                notificationId = notificationIdSR
-                const notificationDataSR = {
-                    notificationId,
-                    createdOn,
-                    title,
-                    body,
-                    open,
-                    type
-                }
-
-                await db.doc('users/' + pnId + "/notifications/" + notificationIdPN).set(notificationDataPN, { merge: true })
-                    .then(function () {
-                        console.log('Success: create notification PN')
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                    })
-                await db.doc('users/' + ohId + "/notifications/" + notificationIdOH).set(notificationDataOH, { merge: true })
-                    .then(function () {
-                        console.log('Success: create notification OH')
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                    })
-                await db.doc('users/' + ssgaId + "/notifications/" + notificationIdSSGA).set(notificationDataSSGA, { merge: true })
-                    .then(function () {
-                        console.log('Success: create notification SSGA')
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                    })
-                await db.doc('users/' + srId + "/notifications/" + notificationIdSR).set(notificationDataSR, { merge: true })
-                    .then(function () {
-                        console.log('Success: create notification SR')
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                    })
-            }
-
             //ditolak
             if (n_complete !== p_complete && n_complete === true) {
                 const title = "Permintaan ditolak"
@@ -532,7 +322,7 @@ exports.onUpdateOrder = functions.firestore
                     //buat dokumen notification
                     const notifications = await db.collection('users/' + userId + '/notifications').doc()
                     const notificationId = notifications.id
-                    const body = "Permintaan " + String(type) + " yang kamu ajukan ditolak oleh SR"
+                    const body = "Mohon maaf, permintaan " + String(type).toUpperCase() + " yang diajukan tidak disetujui"
 
                     const notificationData = {
                         notificationId,
@@ -571,7 +361,7 @@ exports.onUpdateOrder = functions.firestore
                     //buat dokumen notification
                     const notifications = await db.collection('users/' + userId + '/notifications').doc()
                     const notificationId = notifications.id
-                    const body = "Permintaan " + String(type) + " yang kamu ajukan ditolak oleh SSGA"
+                    const body = "Mohon maaf, permintaan " + String(type).toUpperCase() + " yang diajukan tidak disetujui"
 
                     const notificationData = {
                         notificationId,
@@ -610,7 +400,7 @@ exports.onUpdateOrder = functions.firestore
                     //buat dokumen notification
                     const notifications = await db.collection('users/' + userId + '/notifications').doc()
                     const notificationId = notifications.id
-                    const body = "Permintaan " + String(type) + " yang kamu ajukan ditolak oleh OH"
+                    const body = "Mohon maaf, permintaan " + String(type).toUpperCase() + " yang diajukan tidak disetujui"
 
                     const notificationData = {
                         notificationId,
@@ -649,7 +439,7 @@ exports.onUpdateOrder = functions.firestore
                     //buat dokumen notification
                     const notifications = await db.collection('users/' + userId + '/notifications').doc()
                     const notificationId = notifications.id
-                    const body = "Permintaan " + String(type) + " yang kamu ajukan ditolak oleh PN"
+                    const body = "Mohon maaf, permintaan " + String(type).toUpperCase() + " yang diajukan tidak disetujui"
 
                     const notificationData = {
                         notificationId,
@@ -694,8 +484,8 @@ exports.onUpdateOrder = functions.firestore
                     //buat dokumen notification
                     const notifications = await db.collection('users/' + userId + '/notifications').doc()
                     const notificationId = notifications.id
-                    const title = "Permintaan disetujui"
-                    const body = "Permintaan " + String(type) + " yang kamu ajukan telah disetujui oleh PN"
+                    let title = "Permintaan disetujui"
+                    let body = "Permintaan " + String(type).toUpperCase() + " yang diajukan telah disetujui dan akan diproses"
                     const open = false
                     const createdOn = admin.firestore.Timestamp.now()
 
@@ -727,6 +517,46 @@ exports.onUpdateOrder = functions.firestore
                     }
 
                     sendNotification(messageUser)
+
+                    //buat dokumen notification
+                    title = "Permintaan selesai"
+                    body = "Permintaan " + String(type).toUpperCase() + " sejumlah " + stringVolume + " dari " + String(nameUser).toUpperCase() + " telah disetujui, harap segera diproses"
+
+                    const notificationDataAtasan = {
+                        createdOn,
+                        title,
+                        body,
+                        open
+                    }
+
+                    await db.doc('users/' + srId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification SR')
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+                    await db.doc('users/' + ssgaId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification SSGA')
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+                    await db.doc('users/' + ohId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification OH')
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+                    await db.doc('users/' + pnId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification PN')
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
                 }
             }
 
@@ -736,96 +566,42 @@ exports.onUpdateOrder = functions.firestore
                     console.log('ACC OH')
 
                     //buat dokumen notification
-                    const notificationsUser = await db.collection('users/' + userId + '/notifications').doc()
-                    const notificationsPN = await db.collection('users/' + pnId + '/notifications').doc()
-                    const notificationIdUser = notificationsUser.id
-                    const notificationIdPN = notificationsPN.id
-                    const titleUser = "Permintaan disetujui"
-                    const bodyUser = "Permintaan " + String(type) + " yang kamu ajukan telah disetujui oleh OH"
-                    const titlePN = "Permintaan Baru"
-                    const bodyPN = "Terdapat permintaan " + type + " baru dari " + nameUser
-                    const open = true
+                    const status = "\nMenunggu konfirmasi dari SSGA"
+                    const body = "Terdapat permintaan dari SPBU " + String(nameUser).toUpperCase() + " sejumlah: " + stringVolume + ". " + status
                     const createdOn = admin.firestore.Timestamp.now()
 
-                    let notificationId, title, body
-
-                    notificationId = notificationIdUser
-                    title = titleUser
-                    body = bodyUser
-                    const notificationDataUser = {
-                        notificationId,
+                    const notificationDataAtasan = {
                         createdOn,
-                        title,
-                        body,
-                        open,
-                        type
+                        body
                     }
 
-                    notificationId = notificationIdPN
-                    title = titlePN
-                    body = bodyPN
-                    const notificationDataPN = {
-                        notificationId,
-                        createdOn,
-                        title,
-                        body,
-                        open,
-                        type
-                    }
-
-                    await db.doc('users/' + userId + "/notifications/" + notificationIdUser).set(notificationDataUser, { merge: true })
+                    await db.doc('users/' + srId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
                         .then(function () {
-                            console.log('Success: create notification user')
+                            console.log('Success: create notification SR')
                         })
                         .catch(function (error) {
                             console.log(error)
                         })
-
-                    await db.doc('users/' + pnId + "/notifications/" + notificationIdPN).set(notificationDataPN, { merge: true })
+                    await db.doc('users/' + ssgaId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification SSGA')
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+                    await db.doc('users/' + ohId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification OH')
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+                    await db.doc('users/' + pnId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
                         .then(function () {
                             console.log('Success: create notification PN')
                         })
                         .catch(function (error) {
                             console.log(error)
-                        })
-
-                    //notifikasi
-                    const docPN = await db.collection('users').doc(pnId).get()
-                    const dtPN = docPN.data()
-
-                    let registrationTokenPN
-                    if (dtPN !== undefined) {
-                        registrationTokenPN = dtPN.token
-                    }
-
-                    //notif user
-                    const messageUser = {
-                        data: {
-                            "title": titleUser,
-                            "body": bodyUser,
-                            "type": type
-                        },
-                        token: registrationTokenUser
-                    }
-
-                    sendNotification(messageUser)
-
-                    //notif PN
-                    const messagePN = {
-                        data: {
-                            "title": titlePN,
-                            "body": bodyPN,
-                            "type": type
-                        },
-                        token: registrationTokenPN
-                    }
-
-                    admin.messaging().send(messagePN)
-                        .then((response) => {
-                            console.log('Successfully sent message:', response)
-                        })
-                        .catch((error) => {
-                            console.log('Error sending message:', error)
                         })
                 }
             }
@@ -836,96 +612,42 @@ exports.onUpdateOrder = functions.firestore
                     console.log('ACC SSGA')
 
                     //buat dokumen notification
-                    const notificationsUser = await db.collection('users/' + userId + '/notifications').doc()
-                    const notificationsOH = await db.collection('users/' + ohId + '/notifications').doc()
-                    const notificationIdUser = notificationsUser.id
-                    const notificationIdOH = notificationsOH.id
-                    const titleUser = "Permintaan disetujui"
-                    const bodyUser = "Permintaan " + String(type) + " yang kamu ajukan telah disetujui oleh SSGA"
-                    const titleOH = "Permintaan Baru"
-                    const bodyOH = "Terdapat permintaan " + type + " baru dari " + nameUser
-                    const open = true
+                    const status = "\nMenunggu konfirmasi dari PN"
+                    const body = "Terdapat permintaan dari SPBU " + String(nameUser).toUpperCase() + " sejumlah: " + stringVolume + ". " + status
                     const createdOn = admin.firestore.Timestamp.now()
 
-                    let notificationId, title, body
-
-                    notificationId = notificationIdUser
-                    title = titleUser
-                    body = bodyUser
-                    const notificationDataUser = {
-                        notificationId,
+                    const notificationDataAtasan = {
                         createdOn,
-                        title,
-                        body,
-                        open,
-                        type
+                        body
                     }
 
-                    notificationId = notificationIdOH
-                    title = titleOH
-                    body = bodyOH
-                    const notificationDataOH = {
-                        notificationId,
-                        createdOn,
-                        title,
-                        body,
-                        open,
-                        type
-                    }
-
-                    await db.doc('users/' + userId + "/notifications/" + notificationIdUser).set(notificationDataUser, { merge: true })
+                    await db.doc('users/' + srId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
                         .then(function () {
-                            console.log('Success: create notification user')
+                            console.log('Success: create notification SR')
                         })
                         .catch(function (error) {
                             console.log(error)
                         })
-
-                    await db.doc('users/' + ohId + "/notifications/" + notificationIdOH).set(notificationDataOH, { merge: true })
+                    await db.doc('users/' + ssgaId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification SSGA')
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+                    await db.doc('users/' + ohId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
                         .then(function () {
                             console.log('Success: create notification OH')
                         })
                         .catch(function (error) {
                             console.log(error)
                         })
-
-                    //notifikasi
-                    const docOH = await db.collection('users').doc(ohId).get()
-                    const dtOH = docOH.data()
-
-                    let registrationTokenOH
-                    if (dtOH !== undefined) {
-                        registrationTokenOH = dtOH.token
-                    }
-
-                    //notif user
-                    const messageUser = {
-                        data: {
-                            "title": titleUser,
-                            "body": bodyUser,
-                            "type": type
-                        },
-                        token: registrationTokenUser
-                    }
-
-                    sendNotification(messageUser)
-
-                    //notif OH
-                    const messageOH = {
-                        data: {
-                            "title": titleOH,
-                            "body": bodyOH,
-                            "type": type
-                        },
-                        token: registrationTokenOH
-                    }
-
-                    admin.messaging().send(messageOH)
-                        .then((response) => {
-                            console.log('Successfully sent message:', response)
+                    await db.doc('users/' + pnId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification PN')
                         })
-                        .catch((error) => {
-                            console.log('Error sending message:', error)
+                        .catch(function (error) {
+                            console.log(error)
                         })
                 }
             }
@@ -936,149 +658,48 @@ exports.onUpdateOrder = functions.firestore
                     console.log('ACC SR')
 
                     //buat dokumen notification
-                    const notificationsUser = await db.collection('users/' + userId + '/notifications').doc()
-                    const notificationsSSGA = await db.collection('users/' + ssgaId + '/notifications').doc()
-                    const notificationIdUser = notificationsUser.id
-                    const notificationIdSSGA = notificationsSSGA.id
-                    const titleUser = "Permintaan disetujui"
-                    const bodyUser = "Permintaan " + String(type) + " yang kamu ajukan telah disetujui oleh SR"
-                    const titleSSGA = "Permintaan Baru"
-                    const bodySSGA = "Terdapat permintaan " + type + " baru dari " + nameUser
-                    const open = true
+                    const status = "\nMenunggu konfirmasi dari OH"
+                    const body = "Terdapat permintaan dari SPBU " + String(nameUser).toUpperCase() + " sejumlah: " + stringVolume + ". " + status
                     const createdOn = admin.firestore.Timestamp.now()
 
-                    let notificationId, title, body
-
-                    notificationId = notificationIdUser
-                    title = titleUser
-                    body = bodyUser
-                    const notificationDataUser = {
-                        notificationId,
+                    const notificationDataAtasan = {
                         createdOn,
-                        title,
-                        body,
-                        open,
-                        type
+                        body
                     }
 
-                    notificationId = notificationIdSSGA
-                    title = titleSSGA
-                    body = bodySSGA
-                    const notificationDataSSGA = {
-                        notificationId,
-                        createdOn,
-                        title,
-                        body,
-                        open,
-                        type
-                    }
-
-                    await db.doc('users/' + userId + "/notifications/" + notificationIdUser).set(notificationDataUser, { merge: true })
+                    await db.doc('users/' + srId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
                         .then(function () {
-                            console.log('Success: create notification user')
+                            console.log('Success: create notification SR')
                         })
                         .catch(function (error) {
                             console.log(error)
                         })
-
-                    await db.doc('users/' + ssgaId + "/notifications/" + notificationIdSSGA).set(notificationDataSSGA, { merge: true })
+                    await db.doc('users/' + ssgaId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
                         .then(function () {
                             console.log('Success: create notification SSGA')
                         })
                         .catch(function (error) {
                             console.log(error)
                         })
-
-                    //notifikasi
-                    const docSSGA = await db.collection('users').doc(ssgaId).get()
-                    const dtSSGA = docSSGA.data()
-
-                    let registrationTokenSSGA
-                    if (dtSSGA !== undefined) {
-                        registrationTokenSSGA = dtSSGA.token
-                    }
-
-                    //notif user
-                    const messageUser = {
-                        data: {
-                            "title": titleUser,
-                            "body": bodyUser,
-                            "type": type
-                        },
-                        token: registrationTokenUser
-                    }
-
-                    sendNotification(messageUser)
-
-                    //notif OH
-                    const messageSSGA = {
-                        data: {
-                            "title": titleSSGA,
-                            "body": bodySSGA,
-                            "type": type
-                        },
-                        token: registrationTokenSSGA
-                    }
-
-                    admin.messaging().send(messageSSGA)
-                        .then((response) => {
-                            console.log('Successfully sent message:', response)
+                    await db.doc('users/' + ohId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification OH')
                         })
-                        .catch((error) => {
-                            console.log('Error sending message:', error)
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+                    await db.doc('users/' + pnId + "/notifications/" + idNotification).set(notificationDataAtasan, { merge: true })
+                        .then(function () {
+                            console.log('Success: create notification PN')
+                        })
+                        .catch(function (error) {
+                            console.log(error)
                         })
                 }
             }
 
             else {
                 console.log("Trigger update nothing")
-            }
-
-            //selesai
-            if (n_complete !== p_complete && n_complete === true) {
-                if (n_confirmOH === true && n_confirmPN === true && n_confirmSR === true && n_confirmSSGA === true) {
-
-                    //buat dokumen notification
-                    const notifications = await db.collection('users/' + userId + '/notifications').doc()
-                    const notificationId = notifications.id
-                    const title = "Permintaan selesai"
-                    const body = "Permintaan " + String(type) + " yang kamu ajukan telah disetujui dan akan diproses"
-                    const open = false
-                    const createdOn = admin.firestore.Timestamp.now()
-
-                    const notificationData = {
-                        notificationId,
-                        createdOn,
-                        title,
-                        body,
-                        open,
-                        type
-                    }
-
-                    await db.doc('users/' + userId + "/notifications/" + notificationId).set(notificationData, { merge: true })
-                        .then(function () {
-                            console.log('Success: create notification user')
-                        })
-                        .catch(function (error) {
-                            console.log(error)
-                        })
-
-                    //notif user
-                    const messageUser = {
-                        data: {
-                            "title": title,
-                            "body": body,
-                            "type": type
-                        },
-                        token: registrationTokenUser
-                    }
-
-                    sendNotification(messageUser)
-                } else {
-                    console.log("Nothing")
-                }
-            } else {
-                console.log("Nothing")
             }
 
         } catch (error) {
@@ -1095,3 +716,210 @@ function sendNotification(message: any): void {
             console.log('Error sending message:', error)
         })
 }
+
+//function notifikasi all
+// async function sendNotificationAll(): Promise<void> {
+//     const snapUser = user.data()
+//     let nameUser, srId
+//     if (snapUser !== undefined) {
+//         nameUser = snapUser.name
+//         srId = snapUser.salesRetailId
+//     }
+//     const snapOrder = order.data()
+//     let typeOrder
+//     if (snapOrder !== undefined) {
+//         typeOrder = snapOrder.type
+//     }
+//     type = typeOrder
+
+//     let new_confirmOH, new_confirmPN, new_confirmSR, new_confirmSSGA
+//     if (newValue !== undefined) {
+//         new_confirmOH = newValue.orderConfirmation.confirmOH
+//         new_confirmPN = newValue.orderConfirmation.confirmPN
+//         new_confirmSR = newValue.orderConfirmation.confirmSR
+//         new_confirmSSGA = newValue.orderConfirmation.confirmSSGA
+//     } else {
+//         console.log("Error new value")
+//     }
+
+//     let status
+//     if (new_confirmPN === false && new_confirmOH === true && new_confirmSSGA === true && new_confirmSR === true) {
+//         status = ". Menunggu konfirmasi dari PN"
+//     } else if (new_confirmPN === false && new_confirmOH === false && new_confirmSSGA === true && new_confirmSR === true) {
+//         status = ". Menunggu konfirmasi dari OH"
+//     } else if (new_confirmPN === false && new_confirmOH === false && new_confirmSSGA === false && new_confirmSR === true) {
+//         status = ". Menunggu konfirmasi dari SSGA"
+//     } else if (new_confirmPN === false && new_confirmOH === true && new_confirmSSGA === false && new_confirmSR === false) {
+//         status = ". Menunggu konfirmasi dari SR"
+//     } else {
+//         // console.log("Nothing")
+//     }
+
+//     const title = "Permintaan Baru"
+//     const body = "Terdapat permintaan " + String(type).toUpperCase() + " baru dari " + String(nameUser).toUpperCase() + status
+
+//     const docPN = await db.collection('users').doc(pnId).get()
+//     const dtPN = docPN.data()
+//     let registrationTokenPN
+//     if (dtPN !== undefined) {
+//         registrationTokenPN = dtPN.token
+//     }
+//     const docOH = await db.collection('users').doc(ohId).get()
+//     const dtOH = docOH.data()
+//     let registrationTokenOH
+//     if (dtOH !== undefined) {
+//         registrationTokenOH = dtOH.token
+//     }
+//     const docSSGA = await db.collection('users').doc(ssgaId).get()
+//     const dtSSGA = docSSGA.data()
+//     let registrationTokenSSGA
+//     if (dtSSGA !== undefined) {
+//         registrationTokenSSGA = dtSSGA.token
+//     }
+//     const docSR = await db.collection('users').doc(srId).get()
+//     const dtSR = docSR.data()
+//     let registrationTokenSR
+//     if (dtSR !== undefined) {
+//         registrationTokenSR = dtSR.token
+//     }
+
+//     const messagePN = {
+//         data: {
+//             "title": title,
+//             "body": body,
+//             "type": type
+//         },
+//         token: registrationTokenPN
+//     }
+//     const messageOH = {
+//         data: {
+//             "title": title,
+//             "body": body,
+//             "type": type
+//         },
+//         token: registrationTokenOH
+//     }
+//     const messageSSGA = {
+//         data: {
+//             "title": title,
+//             "body": body,
+//             "type": type
+//         },
+//         token: registrationTokenSSGA
+//     }
+//     const messageSR = {
+//         data: {
+//             "title": title,
+//             "body": body,
+//             "type": type
+//         },
+//         token: registrationTokenSR
+//     }
+
+//     admin.messaging().send(messagePN)
+//         .then((response) => {
+//             console.log('Successfully sent message:', response)
+//         })
+//         .catch((error) => {
+//             console.log('Error sending message:', error)
+//         })
+//     admin.messaging().send(messageOH)
+//         .then((response) => {
+//             console.log('Successfully sent message:', response)
+//         })
+//         .catch((error) => {
+//             console.log('Error sending message:', error)
+//         })
+//     admin.messaging().send(messageSSGA)
+//         .then((response) => {
+//             console.log('Successfully sent message:', response)
+//         })
+//         .catch((error) => {
+//             console.log('Error sending message:', error)
+//         })
+//     admin.messaging().send(messageSR)
+//         .then((response) => {
+//             console.log('Successfully sent message:', response)
+//         })
+//         .catch((error) => {
+//             console.log('Error sending message:', error)
+//         })
+
+//     const notificationsPN = await db.collection('users/' + pnId + '/notifications').doc()
+//     const notificationIdPN = notificationsPN.id
+//     const notificationsOH = await db.collection('users/' + ohId + '/notifications').doc()
+//     const notificationIdOH = notificationsOH.id
+//     const notificationsSSGA = await db.collection('users/' + ssgaId + '/notifications').doc()
+//     const notificationIdSSGA = notificationsSSGA.id
+//     const notificationsSR = await db.collection('users/' + srId + '/notifications').doc()
+//     const notificationIdSR = notificationsSR.id
+//     const open = true
+//     const createdOn = admin.firestore.Timestamp.now()
+
+//     let notificationId
+//     notificationId = notificationIdPN
+//     const notificationDataPN = {
+//         notificationId,
+//         createdOn,
+//         title,
+//         body,
+//         open,
+//         type
+//     }
+//     notificationId = notificationIdOH
+//     const notificationDataOH = {
+//         notificationId,
+//         createdOn,
+//         title,
+//         body,
+//         open,
+//         type
+//     }
+//     notificationId = notificationIdSSGA
+//     const notificationDataSSGA = {
+//         notificationId,
+//         createdOn,
+//         title,
+//         body,
+//         open,
+//         type
+//     }
+//     notificationId = notificationIdSR
+//     const notificationDataSR = {
+//         notificationId,
+//         createdOn,
+//         title,
+//         body,
+//         open,
+//         type
+//     }
+
+//     await db.doc('users/' + pnId + "/notifications/" + notificationIdPN).set(notificationDataPN, { merge: true })
+//         .then(function () {
+//             console.log('Success: create notification PN')
+//         })
+//         .catch(function (error) {
+//             console.log(error)
+//         })
+//     await db.doc('users/' + ohId + "/notifications/" + notificationIdOH).set(notificationDataOH, { merge: true })
+//         .then(function () {
+//             console.log('Success: create notification OH')
+//         })
+//         .catch(function (error) {
+//             console.log(error)
+//         })
+//     await db.doc('users/' + ssgaId + "/notifications/" + notificationIdSSGA).set(notificationDataSSGA, { merge: true })
+//         .then(function () {
+//             console.log('Success: create notification SSGA')
+//         })
+//         .catch(function (error) {
+//             console.log(error)
+//         })
+//     await db.doc('users/' + srId + "/notifications/" + notificationIdSR).set(notificationDataSR, { merge: true })
+//         .then(function () {
+//             console.log('Success: create notification SR')
+//         })
+//         .catch(function (error) {
+//             console.log(error)
+//         })
+// }
