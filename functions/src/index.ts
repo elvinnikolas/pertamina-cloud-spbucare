@@ -32,24 +32,219 @@ app.get('/auth/:email/:password', async (request, response) => {
         })
 })
 
-//create user
-app.post('/user/:id/:adress/:name', async (request, response) => {
+//update auth
+app.post('/auth/:uid/:email/:password', async (request, response) => {
+    const uid = request.params.uid
+    const email = request.params.email
+    const password = request.params.password
+
+    auth.updateUser(uid, {
+        email: email,
+        password: password
+    })
+        .then(function (userRecord) {
+            console.log('Successfully updated user', userRecord.toJSON())
+        })
+        .catch(function (error) {
+            console.log('Error updating user:', error)
+        })
+})
+
+//update SR
+app.put('/updateSR', async (request, response) => {
     try {
-        const userId = request.params.id
-        const adress = request.params.adress
+        const users = await db.collection('users').get()
+
+        let userId, name, salesRetailId, kode
+        users.forEach(
+            async (doc) => {
+                userId = doc.data().userId
+                name = doc.data().name
+                kode = String(name.substr(2, 3))
+                if (kode === '651' || kode === '653' || kode === '661') {
+                    salesRetailId = '6MARPQw4ToVY1uZBqckD5dLeEJm1'
+                } else if (kode === '662') {
+                    salesRetailId = 'Abq4TLEs6zUccXVTPm8JtIuXeHE3'
+                } else if (kode === '673') {
+                    salesRetailId = '0Nv8LiPFx5NnvnYMptxu4rxrHy12'
+                } else {
+                    salesRetailId = ''
+                }
+
+                const data = {
+                    salesRetailId
+                }
+
+                await db.collection('users').doc(userId).set(data, { merge: true })
+                    .then(function () {
+                        console.log('Success')
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                    })
+            }
+        )
+        response.status(200).send('success')
+
+    } catch (error) {
+        response.status(500).send(error)
+    }
+})
+
+//delete user
+app.delete('/deleteUser/:uid', async (request, response) => {
+    try {
+        const uid = request.params.uid
+
+        admin.auth().deleteUser(uid)
+            .then(function () {
+                console.log('Successfully deleted user: ' + uid)
+            })
+            .catch(function (error) {
+                console.log('Error deleting user:', error)
+            })
+
+        db.collection('users').doc(uid).delete()
+            .then(function () {
+                console.log('Success: delete user collection ' + uid)
+            })
+            .catch(function (error) {
+                console.log(error)
+            })
+
+        response.json(uid)
+
+    } catch (error) {
+        response.status(500).send(error)
+    }
+})
+
+//create order manual
+app.post('/order/:name', async (request, response) => {
+    try {
         const name = request.params.name
-        const salesRetailId = "6MARPQw4ToVY1uZBqckD5dLeEJm1"
-        const token = ""
-        const profileImage = ""
-        const type = "spbu"
+        const applicantName = name
+        let {
+            createdOn,
+            description,
+            modifiedOn,
+            orderVolume,
+            soNumber,
+            type
+        } = request.body
+
+        const orderConfirmation = {
+            "complete": true,
+            "confirmOH": true,
+            "confirmPN": true,
+            "confirmSR": true,
+            "confirmSSGA": true
+        }
+
+        let userId, adress
+        const users = await db.collection('users').get()
+        users.forEach(
+            (doc) => {
+                if (doc.data().name === name) {
+                    userId = doc.data().userId
+                    adress = doc.data().adress
+                } else {
+                    //
+                }
+            }
+        )
+
+        let kode, salesRetailId
+        kode = String(name.substr(2, 3))
+        if (kode === '651' || kode === '653' || kode === '661') {
+            salesRetailId = '6MARPQw4ToVY1uZBqckD5dLeEJm1'
+        } else if (kode === '662') {
+            salesRetailId = 'Abq4TLEs6zUccXVTPm8JtIuXeHE3'
+        } else if (kode === '673') {
+            salesRetailId = '0Nv8LiPFx5NnvnYMptxu4rxrHy12'
+        } else {
+            salesRetailId = ''
+        }
+
+        const orders = await db.collection('orders').doc()
+        const orderId = orders.id
+        const open = false
+        const manual = true
+        createdOn = new Date(createdOn)
+        modifiedOn = new Date(modifiedOn)
 
         const data = {
+            adress,
+            applicantName,
+            createdOn,
+            description,
+            manual,
+            modifiedOn,
+            open,
+            orderId,
+            orderConfirmation,
+            orderVolume,
+            salesRetailId,
+            soNumber,
+            type,
+            userId
+        }
+
+        await db.doc('orders/' + orderId).set(data, { merge: true })
+            .then(function () {
+                console.log('Success: create new order ' + orderId)
+            })
+            .catch(function (error) {
+                console.log(error)
+            })
+
+        await db.doc('users/' + userId + '/orders/' + orderId).set(data, { merge: true })
+            .then(function () {
+                console.log('Success: create new order ' + name)
+            })
+            .catch(function (error) {
+                console.log(error)
+            })
+
+        const order = await db.doc('orders/' + orderId).get()
+        response.json(order.data())
+
+    } catch (error) {
+        response.status(500).send(error)
+    }
+})
+
+//create user
+app.post('/user/:id', async (request, response) => {
+    try {
+        const userId = request.params.id
+        const {
+            operator,
             name,
             adress,
-            profileImage,
             token,
+            employeeNumber,
             type,
-            userId,
+            pertamina,
+            profileImage,
+            picName,
+            phone,
+            position,
+            salesRetailId
+        } = request.body
+
+        const data = {
+            operator,
+            name,
+            adress,
+            token,
+            employeeNumber,
+            type,
+            pertamina,
+            profileImage,
+            picName,
+            phone,
+            position,
             salesRetailId
         }
 
@@ -73,6 +268,7 @@ app.post('/user/:id/:adress/:name', async (request, response) => {
 let idNotification = ''
 const ssgaId = '1GJiQL1yVPULwtM5BiacBXDCv8Y2'
 const ohId = 'pyo93kufMWa5yRiIQ82w9q454n13'
+const rsdId = 'X4jZuGcsdqRTZx1mxozZGHdgF412'
 const pnId = 'OGliHFqeIVRsM00G2Kq1CrnSKEu1'
 
 //trigger create order
@@ -96,7 +292,7 @@ exports.onCreateOrder = functions.firestore
             }
 
             const dataOrder = order.data()
-            let type, stringVolume
+            let type, manual, stringVolume
             let biosolar, dexlite, pertadex, pertalite, pertamax, premium, pxturbo
             if (dataOrder !== undefined) {
                 if (dataOrder.orderVolume.biosolar !== 0) {
@@ -124,157 +320,181 @@ exports.onCreateOrder = functions.firestore
                 stringVolume = biosolar + dexlite + pertadex + pertalite + pertamax + premium + pxturbo
                 stringVolume = stringVolume.substr(0, stringVolume.length - 2)
                 type = dataOrder.type
+                manual = dataOrder.manual
             }
 
-            const notificationsUser = await db.collection('users/' + userId + '/notifications').doc()
-            const notificationIdUser = notificationsUser.id
-            const titleUser = "Terima Kasih"
-            const bodyUser = "Anda telah menggunakan layanan " + String(type).toUpperCase() + " sejumlah: " + stringVolume + ".\nMohon menunggu persetujuan dari TBBM Malang"
+            if (manual) {
+                console.log("Input manual")
+            } else {
+                const notificationsUser = await db.collection('users/' + userId + '/notifications').doc()
+                const notificationIdUser = notificationsUser.id
+                const titleUser = "Terima Kasih"
+                const bodyUser = "Anda telah menggunakan layanan " + String(type).toUpperCase() + " sejumlah: " + stringVolume + ".\nMohon menunggu persetujuan dari TBBM Malang"
 
-            const notificationsAtasan = await db.collection('users/' + srId + '/notifications').doc()
-            const notificationIdAtasan = notificationsAtasan.id
-            const titleAtasan = "SPBU " + String(nameUser)
-            const status = "\nMenunggu konfirmasi dari SR"
-            const bodyAtasan = "Terdapat permintaan " + String(type).toUpperCase() + " sejumlah: " + stringVolume + ". " + status
+                const notificationsAtasan = await db.collection('users/' + srId + '/notifications').doc()
+                const notificationIdAtasan = notificationsAtasan.id
+                const titleAtasan = "SPBU " + String(nameUser)
+                const status = "\nMenunggu konfirmasi dari SR"
+                const bodyAtasan = "Terdapat permintaan " + String(type).toUpperCase() + " sejumlah: " + stringVolume + ". " + status
 
-            const open = true
-            const createdOn = admin.firestore.Timestamp.now()
+                const open = true
+                const createdOn = admin.firestore.Timestamp.now()
 
-            //function update document notification
-            async function updateDocumentNotification(id: any, notifId: any, notifData: any, log: String) {
-                await db.doc('users/' + id + "/notifications/" + notifId).set(notifData, { merge: true })
-                    .then(function () {
-                        console.log(log)
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                    })
-            }
+                //function update document notification
+                async function updateDocumentNotification(id: any, notifId: any, notifData: any, log: String) {
+                    await db.doc('users/' + id + "/notifications/" + notifId).set(notifData, { merge: true })
+                        .then(function () {
+                            console.log(log)
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+                }
 
-            await db.collection('users/' + ssgaId + '/notifications').doc(notificationIdAtasan)
-            await db.collection('users/' + ohId + '/notifications').doc(notificationIdAtasan)
-            await db.collection('users/' + pnId + '/notifications').doc(notificationIdAtasan)
+                await db.collection('users/' + ssgaId + '/notifications').doc(notificationIdAtasan)
+                await db.collection('users/' + ohId + '/notifications').doc(notificationIdAtasan)
+                await db.collection('users/' + rsdId + '/notifications').doc(notificationIdAtasan)
+                await db.collection('users/' + pnId + '/notifications').doc(notificationIdAtasan)
 
-            idNotification = notificationIdAtasan
+                idNotification = notificationIdAtasan
 
-            let notificationId, title, body
-            notificationId = notificationIdUser
-            title = titleUser
-            body = bodyUser
-            const notificationDataUser = {
-                notificationId,
-                orderId,
-                createdOn,
-                title,
-                body,
-                open,
-                type
-            }
-            notificationId = notificationIdAtasan
-            title = titleAtasan
-            body = bodyAtasan
-            const notificationDataAtasan = {
-                notificationId,
-                orderId,
-                createdOn,
-                title,
-                body,
-                open,
-                type
-            }
+                let notificationId, title, body
+                notificationId = notificationIdUser
+                title = titleUser
+                body = bodyUser
+                const notificationDataUser = {
+                    notificationId,
+                    orderId,
+                    createdOn,
+                    title,
+                    body,
+                    open,
+                    type
+                }
+                notificationId = notificationIdAtasan
+                title = titleAtasan
+                body = bodyAtasan
+                const notificationDataAtasan = {
+                    notificationId,
+                    orderId,
+                    createdOn,
+                    title,
+                    body,
+                    open,
+                    type
+                }
 
-            updateDocumentNotification(userId, notificationIdUser, notificationDataUser, 'Success: create notification user').then(() => console.log('success')).catch((error) => console.log(error))
-            updateDocumentNotification(srId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification SR').then(() => console.log('success')).catch((error) => console.log(error))
-            updateDocumentNotification(ssgaId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
-            updateDocumentNotification(ohId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification OH').then(() => console.log('success')).catch((error) => console.log(error))
-            updateDocumentNotification(pnId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification PN').then(() => console.log('success')).catch((error) => console.log(error))
+                updateDocumentNotification(userId, notificationIdUser, notificationDataUser, 'Success: create notification user').then(() => console.log('success')).catch((error) => console.log(error))
+                updateDocumentNotification(srId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification SR').then(() => console.log('success')).catch((error) => console.log(error))
+                updateDocumentNotification(ssgaId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                updateDocumentNotification(rsdId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
+                updateDocumentNotification(ohId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification OH').then(() => console.log('success')).catch((error) => console.log(error))
+                updateDocumentNotification(pnId, notificationIdAtasan, notificationDataAtasan, 'Success: create notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
-            //notifikasi user
-            const messageUser = {
-                data: {
-                    "title": titleUser,
-                    "body": bodyUser,
-                    "type": type,
-                    "userType": userType
-                },
-                token: registrationTokenUser
-            }
+                //notifikasi user
+                const messageUser = {
+                    data: {
+                        "title": titleUser,
+                        "body": bodyUser,
+                        "type": type,
+                        "userType": userType
+                    },
+                    token: registrationTokenUser
+                }
 
-            sendNotification(messageUser)
+                sendNotification(messageUser)
 
-            //notifikasi atasan
-            const docPN = await db.collection('users').doc(pnId).get()
-            const dtPN = docPN.data()
-            let registrationTokenPN, userTypePN
-            if (dtPN !== undefined) {
-                registrationTokenPN = dtPN.token
-                userTypePN = dtPN.type
-            }
-            const docOH = await db.collection('users').doc(ohId).get()
-            const dtOH = docOH.data()
-            let registrationTokenOH, userTypeOH
-            if (dtOH !== undefined) {
-                registrationTokenOH = dtOH.token
-                userTypeOH = dtOH.type
-            }
-            const docSSGA = await db.collection('users').doc(ssgaId).get()
-            const dtSSGA = docSSGA.data()
-            let registrationTokenSSGA, userTypeSSGA
-            if (dtSSGA !== undefined) {
-                registrationTokenSSGA = dtSSGA.token
-                userTypeSSGA = dtSSGA.type
-            }
-            const docSR = await db.collection('users').doc(srId).get()
-            const dtSR = docSR.data()
-            let registrationTokenSR, userTypeSR
-            if (dtSR !== undefined) {
-                registrationTokenSR = dtSR.token
-                userTypeSR = dtSR.type
-            }
+                //notifikasi atasan
+                const docPN = await db.collection('users').doc(pnId).get()
+                const dtPN = docPN.data()
+                let registrationTokenPN, userTypePN
+                if (dtPN !== undefined) {
+                    registrationTokenPN = dtPN.token
+                    userTypePN = dtPN.type
+                }
+                const docOH = await db.collection('users').doc(ohId).get()
+                const dtOH = docOH.data()
+                let registrationTokenOH, userTypeOH
+                if (dtOH !== undefined) {
+                    registrationTokenOH = dtOH.token
+                    userTypeOH = dtOH.type
+                }
+                const docRSD = await db.collection('users').doc(rsdId).get()
+                const dtRSD = docRSD.data()
+                let registrationTokenRSD, userTypeRSD
+                if (dtRSD !== undefined) {
+                    registrationTokenRSD = dtRSD.token
+                    userTypeRSD = dtRSD.type
+                }
+                const docSSGA = await db.collection('users').doc(ssgaId).get()
+                const dtSSGA = docSSGA.data()
+                let registrationTokenSSGA, userTypeSSGA
+                if (dtSSGA !== undefined) {
+                    registrationTokenSSGA = dtSSGA.token
+                    userTypeSSGA = dtSSGA.type
+                }
+                const docSR = await db.collection('users').doc(srId).get()
+                const dtSR = docSR.data()
+                let registrationTokenSR, userTypeSR
+                if (dtSR !== undefined) {
+                    registrationTokenSR = dtSR.token
+                    userTypeSR = dtSR.type
+                }
 
-            title = "Permintaan Baru"
-            body = "Terdapat permintaan " + String(type).toUpperCase() + " dari SPBU " + String(nameUser).toUpperCase()
-            const messagePN = {
-                data: {
-                    "title": title,
-                    "body": body,
-                    "type": type,
-                    "userType": userTypePN
-                },
-                token: registrationTokenPN
-            }
-            const messageOH = {
-                data: {
-                    "title": title,
-                    "body": body,
-                    "type": type,
-                    "userType": userTypeOH
-                },
-                token: registrationTokenOH
-            }
-            const messageSSGA = {
-                data: {
-                    "title": title,
-                    "body": body,
-                    "type": type,
-                    "userType": userTypeSSGA
-                },
-                token: registrationTokenSSGA
-            }
-            const messageSR = {
-                data: {
-                    "title": title,
-                    "body": body,
-                    "type": type,
-                    "userType": userTypeSR
-                },
-                token: registrationTokenSR
-            }
+                title = "Permintaan Baru"
+                body = "Terdapat permintaan " + String(type).toUpperCase() + " dari SPBU " + String(nameUser).toUpperCase()
+                const messagePN = {
+                    data: {
+                        "title": title,
+                        "body": body,
+                        "type": type,
+                        "userType": userTypePN
+                    },
+                    token: registrationTokenPN
+                }
+                const messageOH = {
+                    data: {
+                        "title": title,
+                        "body": body,
+                        "type": type,
+                        "userType": userTypeOH
+                    },
+                    token: registrationTokenOH
+                }
+                const messageRSD = {
+                    data: {
+                        "title": title,
+                        "body": body,
+                        "type": type,
+                        "userType": userTypeRSD
+                    },
+                    token: registrationTokenRSD
+                }
+                const messageSSGA = {
+                    data: {
+                        "title": title,
+                        "body": body,
+                        "type": type,
+                        "userType": userTypeSSGA
+                    },
+                    token: registrationTokenSSGA
+                }
+                const messageSR = {
+                    data: {
+                        "title": title,
+                        "body": body,
+                        "type": type,
+                        "userType": userTypeSR
+                    },
+                    token: registrationTokenSR
+                }
 
-            sendNotification(messageSR)
-            sendNotification(messageSSGA)
-            sendNotification(messageOH)
-            sendNotification(messagePN)
+                sendNotification(messageSR)
+                sendNotification(messageSSGA)
+                sendNotification(messageRSD)
+                sendNotification(messageOH)
+                sendNotification(messagePN)
+            }
 
         } catch (error) {
             console.log(error)
@@ -435,6 +655,7 @@ exports.onUpdateOrder = functions.firestore
 
                     updateDocumentNotification(srId, notificationDataAtasan, 'Success: update notification SR').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ssgaId, notificationDataAtasan, 'Success: update notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                    updateDocumentNotification(rsdId, notificationDataAtasan, 'Success: update notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ohId, notificationDataAtasan, 'Success: update notification OH').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(pnId, notificationDataAtasan, 'Success: update notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
@@ -452,6 +673,13 @@ exports.onUpdateOrder = functions.firestore
                     if (dtOH !== undefined) {
                         registrationTokenOH = dtOH.token
                         userTypeOH = dtOH.type
+                    }
+                    const docRSD = await db.collection('users').doc(rsdId).get()
+                    const dtRSD = docRSD.data()
+                    let registrationTokenRSD, userTypeRSD
+                    if (dtRSD !== undefined) {
+                        registrationTokenRSD = dtRSD.token
+                        userTypeRSD = dtRSD.type
                     }
                     const docSSGA = await db.collection('users').doc(ssgaId).get()
                     const dtSSGA = docSSGA.data()
@@ -488,6 +716,15 @@ exports.onUpdateOrder = functions.firestore
                         },
                         token: registrationTokenOH
                     }
+                    const messageRSD = {
+                        data: {
+                            "title": title,
+                            "body": body,
+                            "type": type,
+                            "userType": userTypeRSD
+                        },
+                        token: registrationTokenRSD
+                    }
                     const messageSSGA = {
                         data: {
                             "title": title,
@@ -509,6 +746,7 @@ exports.onUpdateOrder = functions.firestore
 
                     sendNotification(messageSR)
                     sendNotification(messageSSGA)
+                    sendNotification(messageRSD)
                     sendNotification(messageOH)
                     sendNotification(messagePN)
                 }
@@ -571,6 +809,7 @@ exports.onUpdateOrder = functions.firestore
 
                     updateDocumentNotification(srId, notificationDataAtasan, 'Success: update notification SR').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ssgaId, notificationDataAtasan, 'Success: update notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                    updateDocumentNotification(rsdId, notificationDataAtasan, 'Success: update notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ohId, notificationDataAtasan, 'Success: update notification OH').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(pnId, notificationDataAtasan, 'Success: update notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
@@ -588,6 +827,13 @@ exports.onUpdateOrder = functions.firestore
                     if (dtOH !== undefined) {
                         registrationTokenOH = dtOH.token
                         userTypeOH = dtOH.type
+                    }
+                    const docRSD = await db.collection('users').doc(rsdId).get()
+                    const dtRSD = docRSD.data()
+                    let registrationTokenRSD, userTypeRSD
+                    if (dtRSD !== undefined) {
+                        registrationTokenRSD = dtRSD.token
+                        userTypeRSD = dtRSD.type
                     }
                     const docSSGA = await db.collection('users').doc(ssgaId).get()
                     const dtSSGA = docSSGA.data()
@@ -624,6 +870,15 @@ exports.onUpdateOrder = functions.firestore
                         },
                         token: registrationTokenOH
                     }
+                    const messageRSD = {
+                        data: {
+                            "title": title,
+                            "body": body,
+                            "type": type,
+                            "userType": userTypeRSD
+                        },
+                        token: registrationTokenRSD
+                    }
                     const messageSSGA = {
                         data: {
                             "title": title,
@@ -645,6 +900,7 @@ exports.onUpdateOrder = functions.firestore
 
                     sendNotification(messageSR)
                     sendNotification(messageSSGA)
+                    sendNotification(messageRSD)
                     sendNotification(messageOH)
                     sendNotification(messagePN)
                 }
@@ -707,6 +963,7 @@ exports.onUpdateOrder = functions.firestore
 
                     updateDocumentNotification(srId, notificationDataAtasan, 'Success: update notification SR').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ssgaId, notificationDataAtasan, 'Success: update notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                    updateDocumentNotification(rsdId, notificationDataAtasan, 'Success: update notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ohId, notificationDataAtasan, 'Success: update notification OH').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(pnId, notificationDataAtasan, 'Success: update notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
@@ -724,6 +981,13 @@ exports.onUpdateOrder = functions.firestore
                     if (dtOH !== undefined) {
                         registrationTokenOH = dtOH.token
                         userTypeOH = dtOH.type
+                    }
+                    const docRSD = await db.collection('users').doc(rsdId).get()
+                    const dtRSD = docRSD.data()
+                    let registrationTokenRSD, userTypeRSD
+                    if (dtRSD !== undefined) {
+                        registrationTokenRSD = dtRSD.token
+                        userTypeRSD = dtRSD.type
                     }
                     const docSSGA = await db.collection('users').doc(ssgaId).get()
                     const dtSSGA = docSSGA.data()
@@ -760,6 +1024,15 @@ exports.onUpdateOrder = functions.firestore
                         },
                         token: registrationTokenOH
                     }
+                    const messageRSD = {
+                        data: {
+                            "title": title,
+                            "body": body,
+                            "type": type,
+                            "userType": userTypeRSD
+                        },
+                        token: registrationTokenRSD
+                    }
                     const messageSSGA = {
                         data: {
                             "title": title,
@@ -781,6 +1054,7 @@ exports.onUpdateOrder = functions.firestore
 
                     sendNotification(messageSR)
                     sendNotification(messageSSGA)
+                    sendNotification(messageRSD)
                     sendNotification(messageOH)
                     sendNotification(messagePN)
                 }
@@ -843,6 +1117,7 @@ exports.onUpdateOrder = functions.firestore
 
                     updateDocumentNotification(srId, notificationDataAtasan, 'Success: update notification SR').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ssgaId, notificationDataAtasan, 'Success: update notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                    updateDocumentNotification(rsdId, notificationDataAtasan, 'Success: update notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ohId, notificationDataAtasan, 'Success: update notification OH').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(pnId, notificationDataAtasan, 'Success: update notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
@@ -860,6 +1135,13 @@ exports.onUpdateOrder = functions.firestore
                     if (dtOH !== undefined) {
                         registrationTokenOH = dtOH.token
                         userTypeOH = dtOH.type
+                    }
+                    const docRSD = await db.collection('users').doc(rsdId).get()
+                    const dtRSD = docRSD.data()
+                    let registrationTokenRSD, userTypeRSD
+                    if (dtRSD !== undefined) {
+                        registrationTokenRSD = dtRSD.token
+                        userTypeRSD = dtRSD.type
                     }
                     const docSSGA = await db.collection('users').doc(ssgaId).get()
                     const dtSSGA = docSSGA.data()
@@ -896,6 +1178,15 @@ exports.onUpdateOrder = functions.firestore
                         },
                         token: registrationTokenOH
                     }
+                    const messageRSD = {
+                        data: {
+                            "title": title,
+                            "body": body,
+                            "type": type,
+                            "userType": userTypeRSD
+                        },
+                        token: registrationTokenRSD
+                    }
                     const messageSSGA = {
                         data: {
                             "title": title,
@@ -917,6 +1208,7 @@ exports.onUpdateOrder = functions.firestore
 
                     sendNotification(messageSR)
                     sendNotification(messageSSGA)
+                    sendNotification(messageRSD)
                     sendNotification(messageOH)
                     sendNotification(messagePN)
                 }
@@ -988,6 +1280,7 @@ exports.onUpdateOrder = functions.firestore
 
                     updateDocumentNotification(srId, notificationDataAtasan, 'Success: update notification SR').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ssgaId, notificationDataAtasan, 'Success: update notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                    updateDocumentNotification(rsdId, notificationDataAtasan, 'Success: update notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ohId, notificationDataAtasan, 'Success: update notification OH').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(pnId, notificationDataAtasan, 'Success: update notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
@@ -1005,6 +1298,13 @@ exports.onUpdateOrder = functions.firestore
                     if (dtOH !== undefined) {
                         registrationTokenOH = dtOH.token
                         userTypeOH = dtOH.type
+                    }
+                    const docRSD = await db.collection('users').doc(rsdId).get()
+                    const dtRSD = docRSD.data()
+                    let registrationTokenRSD, userTypeRSD
+                    if (dtRSD !== undefined) {
+                        registrationTokenRSD = dtRSD.token
+                        userTypeRSD = dtRSD.type
                     }
                     const docSSGA = await db.collection('users').doc(ssgaId).get()
                     const dtSSGA = docSSGA.data()
@@ -1041,6 +1341,15 @@ exports.onUpdateOrder = functions.firestore
                         },
                         token: registrationTokenOH
                     }
+                    const messageRSD = {
+                        data: {
+                            "title": title,
+                            "body": body,
+                            "type": type,
+                            "userType": userTypeRSD
+                        },
+                        token: registrationTokenRSD
+                    }
                     const messageSSGA = {
                         data: {
                             "title": title,
@@ -1062,6 +1371,7 @@ exports.onUpdateOrder = functions.firestore
 
                     sendNotification(messageSR)
                     sendNotification(messageSSGA)
+                    sendNotification(messageRSD)
                     sendNotification(messageOH)
                     sendNotification(messagePN)
                 }
@@ -1096,6 +1406,7 @@ exports.onUpdateOrder = functions.firestore
 
                     updateDocumentNotification(srId, notificationDataAtasan, 'Success: update notification SR').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ssgaId, notificationDataAtasan, 'Success: update notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                    updateDocumentNotification(rsdId, notificationDataAtasan, 'Success: update notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ohId, notificationDataAtasan, 'Success: update notification OH').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(pnId, notificationDataAtasan, 'Success: update notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
@@ -1114,6 +1425,13 @@ exports.onUpdateOrder = functions.firestore
                         registrationTokenOH = dtOH.token
                         userTypeOH = dtOH.type
                     }
+                    const docRSD = await db.collection('users').doc(rsdId).get()
+                    const dtRSD = docRSD.data()
+                    let registrationTokenRSD, userTypeRSD
+                    if (dtRSD !== undefined) {
+                        registrationTokenRSD = dtRSD.token
+                        userTypeRSD = dtRSD.type
+                    }
                     const docSSGA = await db.collection('users').doc(ssgaId).get()
                     const dtSSGA = docSSGA.data()
                     let registrationTokenSSGA, userTypeSSGA
@@ -1129,7 +1447,7 @@ exports.onUpdateOrder = functions.firestore
                         userTypeSR = dtSR.type
                     }
 
-                    let title = "Permintaan SPBU " + String(nameUser).toUpperCase() + " disetujui"
+                    const title = "Permintaan SPBU " + String(nameUser).toUpperCase() + " disetujui"
                     body = "Permintaan " + String(type).toUpperCase() + " sejumlah: " + stringVolume + " telah disetujui oleh OH"
                     const messagePN = {
                         data: {
@@ -1148,6 +1466,15 @@ exports.onUpdateOrder = functions.firestore
                             "userType": userTypeOH
                         },
                         token: registrationTokenOH
+                    }
+                    const messageRSD = {
+                        data: {
+                            "title": title,
+                            "body": body,
+                            "type": type,
+                            "userType": userTypeRSD
+                        },
+                        token: registrationTokenRSD
                     }
                     const messageSSGA = {
                         data: {
@@ -1170,6 +1497,7 @@ exports.onUpdateOrder = functions.firestore
 
                     sendNotification(messageSR)
                     sendNotification(messageSSGA)
+                    sendNotification(messageRSD)
                     sendNotification(messageOH)
                     sendNotification(messagePN)
                 }
@@ -1204,6 +1532,7 @@ exports.onUpdateOrder = functions.firestore
 
                     updateDocumentNotification(srId, notificationDataAtasan, 'Success: update notification SR').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ssgaId, notificationDataAtasan, 'Success: update notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                    updateDocumentNotification(rsdId, notificationDataAtasan, 'Success: update notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ohId, notificationDataAtasan, 'Success: update notification OH').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(pnId, notificationDataAtasan, 'Success: update notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
@@ -1222,6 +1551,13 @@ exports.onUpdateOrder = functions.firestore
                         registrationTokenOH = dtOH.token
                         userTypeOH = dtOH.type
                     }
+                    const docRSD = await db.collection('users').doc(rsdId).get()
+                    const dtRSD = docRSD.data()
+                    let registrationTokenRSD, userTypeRSD
+                    if (dtRSD !== undefined) {
+                        registrationTokenRSD = dtRSD.token
+                        userTypeRSD = dtRSD.type
+                    }
                     const docSSGA = await db.collection('users').doc(ssgaId).get()
                     const dtSSGA = docSSGA.data()
                     let registrationTokenSSGA, userTypeSSGA
@@ -1237,7 +1573,7 @@ exports.onUpdateOrder = functions.firestore
                         userTypeSR = dtSR.type
                     }
 
-                    let title = "Permintaan SPBU " + String(nameUser).toUpperCase() + " disetujui"
+                    const title = "Permintaan SPBU " + String(nameUser).toUpperCase() + " disetujui"
                     body = "Permintaan " + String(type).toUpperCase() + " sejumlah: " + stringVolume + " telah disetujui oleh SSGA"
                     const messagePN = {
                         data: {
@@ -1256,6 +1592,15 @@ exports.onUpdateOrder = functions.firestore
                             "userType": userTypeOH
                         },
                         token: registrationTokenOH
+                    }
+                    const messageRSD = {
+                        data: {
+                            "title": title,
+                            "body": body,
+                            "type": type,
+                            "userType": userTypeRSD
+                        },
+                        token: registrationTokenRSD
                     }
                     const messageSSGA = {
                         data: {
@@ -1278,6 +1623,7 @@ exports.onUpdateOrder = functions.firestore
 
                     sendNotification(messageSR)
                     sendNotification(messageSSGA)
+                    sendNotification(messageRSD)
                     sendNotification(messageOH)
                     sendNotification(messagePN)
                 }
@@ -1312,6 +1658,7 @@ exports.onUpdateOrder = functions.firestore
 
                     updateDocumentNotification(srId, notificationDataAtasan, 'Success: update notification SR').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ssgaId, notificationDataAtasan, 'Success: update notification SSGA').then(() => console.log('success')).catch((error) => console.log(error))
+                    updateDocumentNotification(rsdId, notificationDataAtasan, 'Success: update notification RSD').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(ohId, notificationDataAtasan, 'Success: update notification OH').then(() => console.log('success')).catch((error) => console.log(error))
                     updateDocumentNotification(pnId, notificationDataAtasan, 'Success: update notification PN').then(() => console.log('success')).catch((error) => console.log(error))
 
@@ -1330,6 +1677,13 @@ exports.onUpdateOrder = functions.firestore
                         registrationTokenOH = dtOH.token
                         userTypeOH = dtOH.type
                     }
+                    const docRSD = await db.collection('users').doc(rsdId).get()
+                    const dtRSD = docRSD.data()
+                    let registrationTokenRSD, userTypeRSD
+                    if (dtRSD !== undefined) {
+                        registrationTokenRSD = dtRSD.token
+                        userTypeRSD = dtRSD.type
+                    }
                     const docSSGA = await db.collection('users').doc(ssgaId).get()
                     const dtSSGA = docSSGA.data()
                     let registrationTokenSSGA, userTypeSSGA
@@ -1345,7 +1699,7 @@ exports.onUpdateOrder = functions.firestore
                         userTypeSR = dtSR.type
                     }
 
-                    let title = "Permintaan SPBU " + String(nameUser).toUpperCase() + " disetujui"
+                    const title = "Permintaan SPBU " + String(nameUser).toUpperCase() + " disetujui"
                     body = "Permintaan " + String(type).toUpperCase() + " sejumlah: " + stringVolume + " telah disetujui oleh SR"
                     const messagePN = {
                         data: {
@@ -1364,6 +1718,15 @@ exports.onUpdateOrder = functions.firestore
                             "userType": userTypeOH
                         },
                         token: registrationTokenOH
+                    }
+                    const messageRSD = {
+                        data: {
+                            "title": title,
+                            "body": body,
+                            "type": type,
+                            "userType": userTypeRSD
+                        },
+                        token: registrationTokenRSD
                     }
                     const messageSSGA = {
                         data: {
@@ -1386,6 +1749,7 @@ exports.onUpdateOrder = functions.firestore
 
                     sendNotification(messageSR)
                     sendNotification(messageSSGA)
+                    sendNotification(messageRSD)
                     sendNotification(messageOH)
                     sendNotification(messagePN)
                 }
@@ -1411,12 +1775,13 @@ exports.onUpdateUser = functions.firestore
             const n_registrationTokens: any[] = []
             const p_registrationTokens: any[] = []
 
-            let n_token, p_token, topic
+            let n_token, p_token, n_type, topic
 
             //mendapatkan nilai seluruh field sesudah diupdate
             if (newValue !== undefined) {
                 n_token = newValue.token
                 n_registrationTokens.push(n_token)
+                n_type = newValue.type
             }
 
             //mendapatkan nilai seluruh field sebelum diupdate
@@ -1426,18 +1791,115 @@ exports.onUpdateUser = functions.firestore
             }
 
             if (n_token !== p_token && n_token === '') {
+                if (n_type === 'spbu') {
+                    topic = 'quiz'
+                    unsubscribeNotification(p_registrationTokens, topic)
+                } else {
+                    //
+                }
                 topic = 'information'
                 unsubscribeNotification(p_registrationTokens, topic)
                 topic = 'education'
                 unsubscribeNotification(p_registrationTokens, topic)
 
             } else if (n_token !== p_token && n_token !== '') {
+                if (n_type === 'spbu') {
+                    topic = 'quiz'
+                    subscribeNotification(p_registrationTokens, topic)
+                } else {
+                    //
+                }
                 topic = 'information'
                 subscribeNotification(n_registrationTokens, topic)
                 topic = 'education'
                 subscribeNotification(n_registrationTokens, topic)
             } else {
-                console.log('error subscribe topic')
+                console.log('update user')
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    })
+
+//trigger create quiz
+exports.onCreateQuiz = functions.firestore
+    .document('quiz/{quizId}')
+    .onCreate(async (change, context) => {
+        try {
+            const topic = 'quiz'
+            const title = 'Quiz Baru'
+            const type = 'quiz'
+            const body = 'Terdapat quiz yang baru ditambahkan'
+
+            const message = {
+                data: {
+                    "title": title,
+                    "body": body,
+                    "type": type
+                },
+                topic: topic
+            }
+            sendNotification(message)
+
+        } catch (error) {
+            console.log(error)
+        }
+    })
+
+//trigger update quiz
+exports.onUpdateQuiz = functions.firestore
+    .document('quiz/{quizId}')
+    .onUpdate(async (change, context) => {
+        try {
+            const newValue = change.after.data()
+            const previousValue = change.before.data()
+
+            let n_open, p_open, n_complete
+
+            //mendapatkan nilai seluruh field sesudah diupdate
+            if (newValue !== undefined) {
+                n_open = newValue.open
+                n_complete = newValue.complete
+            }
+
+            //mendapatkan nilai seluruh field sebelum diupdate
+            if (previousValue !== undefined) {
+                p_open = previousValue.open
+            }
+
+            if (n_open !== p_open && n_open === true && n_complete === false) {
+                const title = 'Quiz dibuka'
+                const body = 'Terdapat quiz yang baru dibuka, ayo segera dikerjakan'
+                const topic = 'quiz'
+                const type = 'quiz'
+
+                const message = {
+                    data: {
+                        "title": title,
+                        "body": body,
+                        "type": type
+                    },
+                    topic: topic
+                }
+
+                sendNotification(message)
+                
+            } else if (n_open !== p_open && n_open === false && n_complete === true) {
+                const title = 'Quiz ditutup'
+                const body = 'Terima kasih atas partisipasinya, mohon menunggu hasilnya'
+                const topic = 'quiz'
+                const type = 'quiz'
+
+                const message = {
+                    data: {
+                        "title": title,
+                        "body": body,
+                        "type": type
+                    },
+                    topic: topic
+                }
+
+                sendNotification(message)
             }
         } catch (error) {
             console.log(error)
@@ -1471,11 +1933,11 @@ exports.onCreateInformation = functions.firestore
 
 //trigger create education
 exports.onCreateEducation = functions.firestore
-    .document('educations/{educationId}/files/{fileId}')
+    .document('educations/{educationId}/documents/{documentId}')
     .onCreate(async (snapshot, context) => {
         try {
             const educationId = context.params.educationId
-            const fileId = context.params.fileId
+            const documentId = context.params.documentId
 
             const educations = await db.collection('educations').doc(educationId).get()
             const dataEducation = educations.data()
@@ -1484,8 +1946,8 @@ exports.onCreateEducation = functions.firestore
                 titleEducation = dataEducation.title
             }
 
-            const files = await db.collection('educations/' + educationId + '/files').doc(fileId).get()
-            const dataFile = files.data()
+            const documents = await db.collection('educations/' + educationId + '/documents').doc(documentId).get()
+            const dataFile = documents.data()
             let caption
             if (dataFile !== undefined) {
                 caption = dataFile.caption
@@ -1515,13 +1977,19 @@ app.get('/subscribe', async (request, response) => {
     try {
         const users = await db.collection('users').get()
         const tokens: any[] = []
+        const tokensSpbu: any[] = []
         let data
         users.forEach(
             (doc) => {
                 data = doc.data()
                 if (data.token === '') {
-                    // tokens.push(data.token)
+                    //
                 } else {
+                    if (data.type === 'spbu') {
+                        tokensSpbu.push(data.token)
+                    } else {
+                        //
+                    }
                     tokens.push(data.token)
                 }
             }
